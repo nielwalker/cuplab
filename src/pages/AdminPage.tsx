@@ -1,10 +1,11 @@
-import { BarChart3,LogOut,Package,Settings } from 'lucide-react'
+import { BarChart3,LogOut,Package,Settings,Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 
 const sections=[
   {to:'/products',label:'Manage Products',icon:Package},
   {to:'/settings',label:'Settings',icon:Settings},
+  {to:'/staff',label:'Staff & Attendance',icon:Users},
   {to:'/sales',label:'Sales',icon:BarChart3}
 ]
 

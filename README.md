@@ -9,6 +9,7 @@ CUP LAB is a cashier-focused point-of-sale application built with React, Vite, T
 - Tailwind CSS
 - Supabase Auth, PostgreSQL, Storage, and Row Level Security
 - Zod, Lucide React, and Vitest
+- Python FastAPI and UniFace for face verification
 
 ## Prerequisites
 
@@ -30,6 +31,7 @@ Set only these browser-safe values:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_FACE_API_URL=http://localhost:8000
 ```
 
 Never expose a service-role key, database password, or other server secret through a `VITE_` variable.
@@ -59,6 +61,23 @@ username@coffee-shop.local
 Create the account in Supabase Dashboard under Authentication > Users. For username `admin`, use `admin@coffee-shop.local`, choose a strong password of at least eight characters, and set the display name in the user metadata or matching `profiles.full_name` row. The login screen accepts only the username portion, such as `admin`.
 
 Do not create passwords directly in PostgreSQL or store them in `public.profiles`.
+
+## Face login and staff attendance
+
+Apply `202608260001_staff_faces_attendance.sql` before enabling face login. Existing accounts are promoted to owner accounts; staff registered afterward receive the staff role.
+
+Create and start the face service:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+Copy-Item backend\.env.example backend\.env
+.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+Set `SUPABASE_SECRET_KEY` only in the backend environment. Never add it to a `VITE_` variable or deploy it with the browser application. Set `FRONTEND_ORIGIN` to the frontend origin; multiple origins may be comma-separated.
+
+Owners can open **Admin settings → Staff & Attendance** to register a staff name, username, and live face. The service retains only the ArcFace embedding in the protected `face_credentials` table, not the captured photograph. A successful face login opens an attendance session, and logout closes it. Owner recovery login remains available for camera or model outages.
 
 ## Verification
 

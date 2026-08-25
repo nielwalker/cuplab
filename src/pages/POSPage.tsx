@@ -7,7 +7,7 @@ import { ProductCard } from '../components/products/ProductCard'
 import { OrderPanel } from '../components/cart/OrderPanel'
 import { IceModal } from '../components/products/IceModal'
 import { calculateIceTotal,findIceTier } from '../utils/icePricing'
-import { formatMoney,pesosToCentavos } from '../utils/money'
+import { pesosToCentavos } from '../utils/money'
 
 export function POSPage(){
   const [products,setProducts]=useState<Product[]>([])
@@ -32,9 +32,9 @@ export function POSPage(){
   const filtered=useMemo(()=>products.filter(product=>(!selectedCategory||product.category_id===selectedCategory)&&product.name.toLowerCase().includes(query.toLowerCase())),[products,selectedCategory,query])
 
   function add(product:Product){
-    if(!product.is_available)return
+    if(!product.is_available||(product.track_stock&&product.stock_quantity===0))return
     if(product.unit_type==='kilogram'){setIce(product);return}
-    setItems(current=>{const existing=current.find(item=>item.product_id===product.id&&item.weight_kg===null);if(existing)return current.map(item=>item.id===existing.id?{...item,quantity:(item.quantity??0)+1,line_total_centavos:((item.quantity??0)+1)*(product.price_centavos??0)}:item);return [...current,{id:crypto.randomUUID(),order_id:'draft',product_id:product.id,product_name_snapshot:product.name,category_name_snapshot:product.category?.name??'Uncategorized',unit_price_centavos_snapshot:product.price_centavos??0,quantity:1,weight_kg:null,line_total_centavos:product.price_centavos??0,created_at:new Date().toISOString()}]})
+    setItems(current=>{const existing=current.find(item=>item.product_id===product.id&&item.weight_kg===null);if(existing){const next=(existing.quantity??0)+1;if(product.track_stock&&next>(product.stock_quantity??0))return current;return current.map(item=>item.id===existing.id?{...item,quantity:next,line_total_centavos:next*(product.price_centavos??0)}:item)}return [...current,{id:crypto.randomUUID(),order_id:'draft',product_id:product.id,product_name_snapshot:product.name,category_name_snapshot:product.category?.name??'Uncategorized',unit_price_centavos_snapshot:product.price_centavos??0,quantity:1,weight_kg:null,line_total_centavos:product.price_centavos??0,created_at:new Date().toISOString()}]})
   }
 
   function addIce(product:Product,weight:number){
@@ -43,7 +43,7 @@ export function POSPage(){
     setItems(current=>[...current,{id:crypto.randomUUID(),order_id:'draft',product_id:product.id,product_name_snapshot:product.name,category_name_snapshot:product.category?.name??'Ice',unit_price_centavos_snapshot:tier.price_per_kg_centavos,quantity:null,weight_kg:weight,line_total_centavos:calculateIceTotal(weight,tier.price_per_kg_centavos),created_at:new Date().toISOString()}])
   }
 
-  function changeQuantity(id:string,quantity:number){setItems(current=>quantity<=0?current.filter(item=>item.id!==id):current.map(item=>item.id===id?{...item,quantity,line_total_centavos:item.unit_price_centavos_snapshot*quantity}:item))}
+  function changeQuantity(id:string,quantity:number){setItems(current=>{const cartItem=current.find(item=>item.id===id);const product=products.find(item=>item.id===cartItem?.product_id);const allowed=product?.track_stock?Math.min(quantity,product.stock_quantity??0):quantity;return allowed<=0?current.filter(item=>item.id!==id):current.map(item=>item.id===id?{...item,quantity:allowed,line_total_centavos:item.unit_price_centavos_snapshot*allowed}:item)})}
   function resetCart(){setItems([]);setCheckoutKey(crypto.randomUUID());setPaymentMethod('CASH');setCashReceived('')}
   function clearCart(){if(items.length&&!confirm('Clear the current cart?'))return;resetCart()}
 
@@ -54,8 +54,7 @@ export function POSPage(){
     try{
       const cashTendered=paymentMethod==='CASH'?pesosToCentavos(cashReceived):null
       if(paymentMethod==='CASH'&&(cashTendered===null||cashTendered<total)){setError('Cash received must be equal to or greater than the total.');return}
-      const completed=await completeCart(checkoutKey,items.map(item=>({product_id:item.product_id!,quantity:item.quantity,weight_kg:item.weight_kg})),paymentMethod,cashTendered)
-      alert(paymentMethod==='CASH'?`Order completed successfully. Change: ${formatMoney(completed.change_centavos??0)}`:'Order completed successfully.')
+      await completeCart(checkoutKey,items.map(item=>({product_id:item.product_id!,quantity:item.quantity,weight_kg:item.weight_kg})),paymentMethod,cashTendered)
       resetCart()
     }catch{setError('The order was not completed. Check the payment, prices, and product availability.')}
     finally{setProcessing(false)}

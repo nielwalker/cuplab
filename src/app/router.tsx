@@ -1,5 +1,7 @@
 import { createBrowserRouter,Navigate } from 'react-router-dom'
 import { ProtectedRoute } from '../features/auth/ProtectedRoute'
+import { OwnerRoute } from '../features/auth/OwnerRoute'
+import { StaffRoute } from '../features/auth/StaffRoute'
 import { AppLayout } from '../components/layout/AppLayout'
 import { LoginPage } from '../pages/LoginPage'
 import { POSPage } from '../pages/POSPage'
@@ -8,7 +10,9 @@ import { ProductFormPage } from '../pages/ProductFormPage'
 import { OrdersPage } from '../pages/OrdersPage'
 import { OrderDetailPage } from '../pages/OrderDetailPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { StaffPage } from '../pages/StaffPage'
+import { StaffSettingsPage } from '../pages/StaffSettingsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { AdminPage } from '../pages/AdminPage'
 import { SalesPage } from '../pages/SalesPage'
-export const router=createBrowserRouter([{path:'/',element:<Navigate to="/pos" replace/>},{path:'/login',element:<LoginPage/>},{element:<ProtectedRoute/>,children:[{element:<AppLayout/>,children:[{path:'/pos',element:<POSPage/>},{path:'/admin',element:<AdminPage/>},{path:'/products',element:<ProductsPage/>},{path:'/products/new',element:<ProductFormPage/>},{path:'/products/:id/edit',element:<ProductFormPage/>},{path:'/orders',element:<OrdersPage/>},{path:'/orders/:id',element:<OrderDetailPage/>},{path:'/settings',element:<SettingsPage/>},{path:'/sales',element:<SalesPage/>}]}]},{path:'*',element:<NotFoundPage/>}])
+export const router=createBrowserRouter([{path:'/',element:<Navigate to="/pos" replace/>},{path:'/login',element:<LoginPage/>},{element:<ProtectedRoute/>,children:[{element:<AppLayout/>,children:[{path:'/pos',element:<POSPage/>},{path:'/orders',element:<OrdersPage/>},{path:'/orders/:id',element:<OrderDetailPage/>},{element:<StaffRoute/>,children:[{path:'/staff-settings',element:<StaffSettingsPage/>}]},{element:<OwnerRoute/>,children:[{path:'/admin',element:<AdminPage/>},{path:'/products',element:<ProductsPage/>},{path:'/products/new',element:<ProductFormPage/>},{path:'/products/:id/edit',element:<ProductFormPage/>},{path:'/settings',element:<SettingsPage/>},{path:'/staff',element:<StaffPage/>},{path:'/sales',element:<SalesPage/>}]}]}]},{path:'*',element:<NotFoundPage/>}])

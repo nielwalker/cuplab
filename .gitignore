@@ -9,3 +9,6 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
+.venv/
+backend/.env
+.uniface/
