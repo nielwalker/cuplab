@@ -24,7 +24,7 @@ export function OrderPanel({order,processing,onChange,onRemove,onComplete,onCanc
   const cashValid=paymentMethod==='GCASH'||(cashCentavos!==null&&cashCentavos>=total)
   const change=paymentMethod==='CASH'&&cashValid&&cashCentavos!==null?cashCentavos-total:0
   return <aside className="flex min-h-[520px] flex-col rounded-2xl bg-white p-5 shadow-sm">
-    <div className="mb-5"><h2 className="text-xl font-bold">Current Order</h2><p className="text-xs text-stone-500">{order?.order_number??'Loading...'}</p></div>
+    <div className="mb-5"><h2 className="text-xl font-bold">Current Order</h2></div>
     <div className="flex-1 space-y-3 overflow-y-auto">
       {items.length===0&&<div className="grid h-48 place-items-center text-center text-sm text-stone-400">Place an order.</div>}
       {items.map(item=><div key={item.id} className="flex items-center gap-2 rounded-xl border border-stone-200 p-3">

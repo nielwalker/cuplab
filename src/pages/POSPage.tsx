@@ -28,7 +28,7 @@ export function POSPage(){
   useEffect(()=>{void initialize()},[initialize])
 
   const total=useMemo(()=>items.reduce((sum,item)=>sum+item.line_total_centavos,0),[items])
-  const order=useMemo<OrderWithItems>(()=>({id:'draft',order_number:'Unsaved cart',cashier_id:'',status:'OPEN',subtotal_centavos:total,total_centavos:total,payment_method:paymentMethod,cash_tendered_centavos:null,change_centavos:null,created_at:new Date().toISOString(),completed_at:null,cancelled_at:null,order_items:items}),[items,total,paymentMethod])
+  const order=useMemo<OrderWithItems>(()=>({id:'draft',order_number:'',cashier_id:'',status:'OPEN',subtotal_centavos:total,total_centavos:total,payment_method:paymentMethod,cash_tendered_centavos:null,change_centavos:null,created_at:new Date().toISOString(),completed_at:null,cancelled_at:null,order_items:items}),[items,total,paymentMethod])
   const filtered=useMemo(()=>products.filter(product=>(!selectedCategory||product.category_id===selectedCategory)&&product.name.toLowerCase().includes(query.toLowerCase())),[products,selectedCategory,query])
 
   function add(product:Product){
