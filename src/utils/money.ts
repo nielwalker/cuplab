@@ -1,0 +1,4 @@
+export const formatMoney = (centavos:number) => new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(centavos/100)
+export function pesosToCentavos(value:string|number):number { const normalized=String(value).trim(); if(!/^\d+(\.\d{1,2})?$/.test(normalized)) throw new Error('Enter a valid amount with up to two decimal places.'); const [whole,decimal='']=normalized.split('.'); return Number(whole)*100+Number(decimal.padEnd(2,'0')) }
+export const calculateCartTotal = (items:Array<{line_total_centavos:number}>) => items.reduce((sum,item)=>sum+item.line_total_centavos,0)
+export const calculateNormalLineTotal = (unitPriceCentavos:number,quantity:number) => { if(!Number.isInteger(unitPriceCentavos)||unitPriceCentavos<0||!Number.isInteger(quantity)||quantity<=0) throw new Error('Invalid line item'); return unitPriceCentavos*quantity }

@@ -1,0 +1,26 @@
+import { Coffee,Menu,ReceiptText,ShoppingCart,X } from 'lucide-react'
+import { useState } from 'react'
+import { Link,NavLink } from 'react-router-dom'
+
+const links=[
+  {to:'/pos',label:'POS',icon:ShoppingCart},
+  {to:'/orders',label:'Orders',icon:ReceiptText}
+]
+
+export function Sidebar(){
+  const [open,setOpen]=useState(false)
+
+  return <>
+    <button className="fixed left-3 top-3 z-50 rounded-lg bg-brand-900 p-2 text-white lg:hidden" onClick={()=>setOpen(value=>!value)} aria-label="Toggle navigation">{open?<X/>:<Menu/>}</button>
+    {open&&<button className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={()=>setOpen(false)} aria-label="Close navigation"/>}
+    <aside className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col overflow-hidden bg-brand-900 p-5 text-white transition-transform lg:static lg:translate-x-0 ${open?'translate-x-0':'-translate-x-full'}`}>
+      <div className="mb-10 flex items-center gap-3 text-xl font-bold">
+        <Link to="/admin" onClick={()=>setOpen(false)} aria-label="Open admin settings" className="rounded-xl bg-brand-500 p-2 text-white hover:bg-brand-600"><Coffee/></Link>
+        <span>CUP LAB</span>
+      </div>
+      <nav className="space-y-2" aria-label="Main navigation">
+        {links.map(({to,label,icon:Icon})=><NavLink key={to} to={to} onClick={()=>setOpen(false)} className={({isActive})=>`flex items-center gap-3 rounded-xl px-4 py-3 font-medium ${isActive?'bg-brand-500':'text-stone-300 hover:bg-white/10 hover:text-white'}`}><Icon size={20}/>{label}</NavLink>)}
+      </nav>
+    </aside>
+  </>
+}

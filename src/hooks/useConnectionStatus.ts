@@ -1,0 +1,3 @@
+import { useEffect,useState } from 'react'
+export type ConnectionStatus='ONLINE'|'OFFLINE'|'RECONNECTING'
+export function useConnectionStatus(){const [status,setStatus]=useState<ConnectionStatus>(navigator.onLine?'ONLINE':'OFFLINE');useEffect(()=>{let timer:number|undefined;const online=()=>{setStatus('RECONNECTING');timer=window.setTimeout(()=>setStatus('ONLINE'),1000)};const offline=()=>setStatus('OFFLINE');addEventListener('online',online);addEventListener('offline',offline);return()=>{removeEventListener('online',online);removeEventListener('offline',offline);clearTimeout(timer)}},[]);return status}
