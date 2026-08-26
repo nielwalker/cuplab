@@ -2,6 +2,7 @@ import os
 import secrets
 import time
 from collections import defaultdict,deque
+from datetime import datetime,timezone
 from typing import Annotated
 
 import cv2
@@ -31,10 +32,14 @@ detector=RetinaFace()
 recognizer=ArcFace()
 spoofer=MiniFASNet()
 app=FastAPI(title='CUP LAB Face Authentication',docs_url=None,redoc_url=None)
-app.add_middleware(CORSMiddleware,allow_origins=FRONTEND_ORIGINS,allow_credentials=False,allow_methods=['GET','POST'],allow_headers=['Authorization','Content-Type'])
+app.add_middleware(CORSMiddleware,allow_origins=FRONTEND_ORIGINS,allow_credentials=False,allow_methods=['GET','POST','PATCH','DELETE'],allow_headers=['Authorization','Content-Type'])
 attempts:dict[str,deque[float]]=defaultdict(deque)
 
 class EnrollmentFields(BaseModel):
+    full_name:str=Field(min_length=1,max_length=120)
+    username:str=Field(pattern=r'^[a-z0-9._-]{3,32}$')
+
+class StaffUpdate(BaseModel):
     full_name:str=Field(min_length=1,max_length=120)
     username:str=Field(pattern=r'^[a-z0-9._-]{3,32}$')
 
@@ -93,6 +98,25 @@ async def enroll(full_name:str=Form(...),username:str=Form(...),image:UploadFile
             except Exception:pass
         raise HTTPException(409,'Username already exists or staff enrollment failed') from exc
     return {'id':profile_id,'full_name':fields.full_name,'username':fields.username}
+
+@app.patch('/staff/{profile_id}')
+def update_staff(profile_id:str,fields:StaffUpdate,owner=Depends(require_owner)):
+    profile=db.table('profiles').select('id,role').eq('id',profile_id).single().execute().data
+    if not profile or profile['role']!='STAFF':raise HTTPException(404,'Staff account not found')
+    try:
+        db.auth.admin.update_user_by_id(profile_id,{'email':f'{fields.username}@coffee-shop.local','user_metadata':{'full_name':fields.full_name,'role':'STAFF'}})
+        db.table('profiles').update({'full_name':fields.full_name,'username':fields.username}).eq('id',profile_id).execute()
+    except Exception as exc:raise HTTPException(409,'Username already exists or staff update failed') from exc
+    return {'id':profile_id,'full_name':fields.full_name,'username':fields.username}
+
+@app.delete('/staff/{profile_id}')
+def delete_staff(profile_id:str,owner=Depends(require_owner)):
+    profile=db.table('profiles').select('id,role').eq('id',profile_id).single().execute().data
+    if not profile or profile['role']!='STAFF':raise HTTPException(404,'Staff account not found')
+    db.table('attendance_sessions').update({'clocked_out_at':datetime.now(timezone.utc).isoformat()}).eq('staff_id',profile_id).is_('clocked_out_at','null').execute()
+    db.table('face_credentials').delete().eq('profile_id',profile_id).execute()
+    db.table('profiles').update({'is_active':False}).eq('id',profile_id).execute()
+    return {'deleted':True}
 
 @app.post('/verify')
 async def verify(request:Request,image:UploadFile=File(...)):

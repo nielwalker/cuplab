@@ -2,7 +2,7 @@ export type OrderStatus = 'OPEN' | 'COMPLETED' | 'CANCELLED'
 export type PaymentMethod = 'CASH' | 'GCASH'
 export type UnitType = 'piece' | 'kilogram'
 export type StaffRole = 'OWNER' | 'STAFF'
-export interface Profile { id:string; full_name:string; role:StaffRole; is_active:boolean; created_at:string; updated_at:string }
+export interface Profile { id:string; full_name:string; username:string; role:StaffRole; is_active:boolean; created_at:string; updated_at:string }
 export interface AttendanceSession { id:string; staff_id:string; clocked_in_at:string; clocked_out_at:string|null; login_method:'FACE'|'ADMIN_RECOVERY'; profiles?:Pick<Profile,'full_name'> }
 export interface Category { id:string; name:string; slug:string; sort_order:number; is_active:boolean }
 export interface Product { id:string; category_id:string; name:string; description:string|null; price_centavos:number|null; image_path:string|null; unit_type:UnitType; is_active:boolean; is_available:boolean; track_stock:boolean; stock_quantity:number|null; created_at:string; updated_at:string; category?:Pick<Category,'name'|'slug'> }
