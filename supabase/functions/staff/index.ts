@@ -1,9 +1,9 @@
 import "@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "npm:@supabase/supabase-js@2"
 
-type StaffRequest={action:"create"|"update"|"delete";id?:string;full_name?:string;username?:string;contact_email?:string;password?:string}
+type StaffRequest={action:"create"|"update"|"delete";id?:string;full_name?:string;username?:string;phone_number?:string;password?:string}
 const usernamePattern=/^[a-z0-9._-]{3,32}$/
-const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const phonePattern=/^[0-9]{1,11}$/
 const corsHeaders={
   "Access-Control-Allow-Origin":"*",
   "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type",
@@ -30,19 +30,19 @@ Deno.serve(async req=>{
   let input:StaffRequest
   try{input=await req.json()}catch{return fail("Invalid request body")}
   if(input.action==="create"){
-    const fullName=input.full_name?.trim();const username=input.username?.trim().toLowerCase();const contactEmail=input.contact_email?.trim().toLowerCase();const password=input.password??""
-    if(!fullName||!usernamePattern.test(username??"")||!emailPattern.test(contactEmail??"")||password.length<8||password.length>72)return fail("Enter a valid name, username, contact email, and password of 8–72 characters.")
+    const fullName=input.full_name?.trim();const username=input.username?.trim().toLowerCase();const phoneNumber=input.phone_number?.trim();const password=input.password??""
+    if(!fullName||!usernamePattern.test(username??"")||!phonePattern.test(phoneNumber??"")||password.length<8||password.length>72)return fail("Enter a valid name, username, phone number of up to 11 digits, and password of 8–72 characters.")
     const {data:existing}=await admin.from("profiles").select("id,role,is_active").eq("username",username).maybeSingle()
     if(existing){
       if(existing.role!=="STAFF"||existing.is_active)return fail("That username is already in use.",409)
-      const {data:emailOwner,error:emailLookupError}=await admin.from("profiles").select("id").ilike("contact_email",contactEmail).neq("id",existing.id).maybeSingle()
-      if(emailLookupError)return fail("Unable to validate the contact email.",409)
-      if(emailOwner)return fail("That contact email is already assigned to another account.",409)
+      const {data:phoneOwner,error:phoneLookupError}=await admin.from("profiles").select("id").eq("phone_number",phoneNumber).neq("id",existing.id).maybeSingle()
+      if(phoneLookupError)return fail("Unable to validate the phone number.",409)
+      if(phoneOwner)return fail("That phone number is already assigned to another account.",409)
       const {error:authError}=await admin.auth.admin.updateUserById(existing.id,{email:`${username}@coffee-shop.local`,password,ban_duration:"none",email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
       if(authError)return fail(`Unable to reactivate staff: ${authError.message}`,409)
-      const {error:profileError}=await admin.from("profiles").update({full_name:fullName,contact_email:contactEmail,is_active:true}).eq("id",existing.id)
+      const {error:profileError}=await admin.from("profiles").update({full_name:fullName,phone_number:phoneNumber,is_active:true}).eq("id",existing.id)
       if(profileError)return fail(`Unable to reactivate staff profile: ${profileError.message}`,409)
-      return json({id:existing.id,full_name:fullName,username,contact_email:contactEmail,reactivated:true})
+      return json({id:existing.id,full_name:fullName,username,phone_number:phoneNumber,reactivated:true})
     }
     const internalEmail=`${username}@coffee-shop.local`
     const {data:userPage,error:listError}=await admin.auth.admin.listUsers({page:1,perPage:1000})
@@ -52,37 +52,37 @@ Deno.serve(async req=>{
       const {data:linkedProfile}=await admin.from("profiles").select("id,role,is_active,username").eq("id",orphanedUser.id).maybeSingle()
       const metadataRole=orphanedUser.user_metadata?.role
       if(linkedProfile?.role==="OWNER"||linkedProfile?.is_active||(!linkedProfile&&metadataRole!=="STAFF"))return fail("That username belongs to an existing account.",409)
-      const {data:emailOwner}=await admin.from("profiles").select("id").ilike("contact_email",contactEmail).neq("id",orphanedUser.id).maybeSingle()
-      if(emailOwner)return fail("That contact email is already assigned to another account.",409)
+      const {data:phoneOwner}=await admin.from("profiles").select("id").eq("phone_number",phoneNumber).neq("id",orphanedUser.id).maybeSingle()
+      if(phoneOwner)return fail("That phone number is already assigned to another account.",409)
       const {error:authError}=await admin.auth.admin.updateUserById(orphanedUser.id,{password,ban_duration:"none",email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
       if(authError)return fail(`Unable to recover staff login: ${authError.message}`,409)
-      const profileValues={id:orphanedUser.id,full_name:fullName,username,contact_email:contactEmail,role:"STAFF",is_active:true}
+      const profileValues={id:orphanedUser.id,full_name:fullName,username,phone_number:phoneNumber,role:"STAFF",is_active:true}
       const {error:profileError}=linkedProfile
         ?await admin.from("profiles").update(profileValues).eq("id",orphanedUser.id)
         :await admin.from("profiles").insert(profileValues)
       if(profileError)return fail(`Unable to recover staff profile: ${profileError.message}`,409)
-      return json({id:orphanedUser.id,full_name:fullName,username,contact_email:contactEmail,recovered:true})
+      return json({id:orphanedUser.id,full_name:fullName,username,phone_number:phoneNumber,recovered:true})
     }
     const {data,error}=await admin.auth.admin.createUser({email:internalEmail,password,email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
     if(error||!data.user)return fail(error?.message??"Staff creation failed",409)
-    const {error:profileError}=await admin.from("profiles").update({contact_email:contactEmail}).eq("id",data.user.id)
-    if(profileError){await admin.auth.admin.deleteUser(data.user.id);return fail("Contact email already exists or staff profile creation failed",409)}
-    return json({id:data.user.id,full_name:fullName,username,contact_email:contactEmail})
+    const {error:profileError}=await admin.from("profiles").update({phone_number:phoneNumber}).eq("id",data.user.id)
+    if(profileError){await admin.auth.admin.deleteUser(data.user.id);return fail("Phone number already exists or staff profile creation failed",409)}
+    return json({id:data.user.id,full_name:fullName,username,phone_number:phoneNumber})
   }
 
   if(!input.id)return fail("Staff account ID is required")
   const {data:staff}=await admin.from("profiles").select("id,role").eq("id",input.id).maybeSingle()
   if(!staff||staff.role!=="STAFF")return fail("Staff account not found",404)
   if(input.action==="update"){
-    const fullName=input.full_name?.trim();const username=input.username?.trim().toLowerCase();const contactEmail=input.contact_email?.trim().toLowerCase()
-    if(!fullName||!usernamePattern.test(username??"")||!emailPattern.test(contactEmail??"")||(input.password!==undefined&&(input.password.length<8||input.password.length>72)))return fail("Enter valid staff details and a password of 8–72 characters.")
+    const fullName=input.full_name?.trim();const username=input.username?.trim().toLowerCase();const phoneNumber=input.phone_number?.trim()
+    if(!fullName||!usernamePattern.test(username??"")||!phonePattern.test(phoneNumber??"")||(input.password!==undefined&&(input.password.length<8||input.password.length>72)))return fail("Enter valid staff details and a password of 8–72 characters.")
     const attributes:{email:string;user_metadata:{full_name:string;role:string};password?:string}={email:`${username}@coffee-shop.local`,user_metadata:{full_name:fullName,role:"STAFF"}}
     if(input.password)attributes.password=input.password
     const {error:authError}=await admin.auth.admin.updateUserById(input.id,attributes)
     if(authError)return fail("Username already exists or staff update failed",409)
-    const {error:profileError}=await admin.from("profiles").update({full_name:fullName,username,contact_email:contactEmail}).eq("id",input.id)
+    const {error:profileError}=await admin.from("profiles").update({full_name:fullName,username,phone_number:phoneNumber}).eq("id",input.id)
     if(profileError)return fail("Staff profile update failed",409)
-    return json({id:input.id,full_name:fullName,username,contact_email:contactEmail})
+    return json({id:input.id,full_name:fullName,username,phone_number:phoneNumber})
   }
   if(input.action==="delete"){
     await admin.from("attendance_sessions").update({clocked_out_at:new Date().toISOString()}).eq("staff_id",input.id).is("clocked_out_at",null)
