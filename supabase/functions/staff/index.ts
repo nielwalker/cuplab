@@ -32,8 +32,20 @@ Deno.serve(async req=>{
   if(input.action==="create"){
     const fullName=input.full_name?.trim();const username=input.username?.trim().toLowerCase();const contactEmail=input.contact_email?.trim().toLowerCase();const password=input.password??""
     if(!fullName||!usernamePattern.test(username??"")||!emailPattern.test(contactEmail??"")||password.length<8||password.length>72)return fail("Enter a valid name, username, contact email, and password of 8–72 characters.")
+    const {data:existing}=await admin.from("profiles").select("id,role,is_active").eq("username",username).maybeSingle()
+    if(existing){
+      if(existing.role!=="STAFF"||existing.is_active)return fail("That username is already in use.",409)
+      const {data:emailOwner,error:emailLookupError}=await admin.from("profiles").select("id").ilike("contact_email",contactEmail).neq("id",existing.id).maybeSingle()
+      if(emailLookupError)return fail("Unable to validate the contact email.",409)
+      if(emailOwner)return fail("That contact email is already assigned to another account.",409)
+      const {error:authError}=await admin.auth.admin.updateUserById(existing.id,{email:`${username}@coffee-shop.local`,password,ban_duration:"none",email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
+      if(authError)return fail(`Unable to reactivate staff: ${authError.message}`,409)
+      const {error:profileError}=await admin.from("profiles").update({full_name:fullName,contact_email:contactEmail,is_active:true}).eq("id",existing.id)
+      if(profileError)return fail(`Unable to reactivate staff profile: ${profileError.message}`,409)
+      return json({id:existing.id,full_name:fullName,username,contact_email:contactEmail,reactivated:true})
+    }
     const {data,error}=await admin.auth.admin.createUser({email:`${username}@coffee-shop.local`,password,email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
-    if(error||!data.user)return fail("Username already exists or staff creation failed",409)
+    if(error||!data.user)return fail(error?.message??"Staff creation failed",409)
     const {error:profileError}=await admin.from("profiles").update({contact_email:contactEmail}).eq("id",data.user.id)
     if(profileError){await admin.auth.admin.deleteUser(data.user.id);return fail("Contact email already exists or staff profile creation failed",409)}
     return json({id:data.user.id,full_name:fullName,username,contact_email:contactEmail})
