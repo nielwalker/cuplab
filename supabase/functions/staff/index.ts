@@ -44,7 +44,26 @@ Deno.serve(async req=>{
       if(profileError)return fail(`Unable to reactivate staff profile: ${profileError.message}`,409)
       return json({id:existing.id,full_name:fullName,username,contact_email:contactEmail,reactivated:true})
     }
-    const {data,error}=await admin.auth.admin.createUser({email:`${username}@coffee-shop.local`,password,email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
+    const internalEmail=`${username}@coffee-shop.local`
+    const {data:userPage,error:listError}=await admin.auth.admin.listUsers({page:1,perPage:1000})
+    if(listError)return fail(`Unable to check existing Auth accounts: ${listError.message}`,409)
+    const orphanedUser=userPage.users.find(user=>user.email?.toLowerCase()===internalEmail)
+    if(orphanedUser){
+      const {data:linkedProfile}=await admin.from("profiles").select("id,role,is_active,username").eq("id",orphanedUser.id).maybeSingle()
+      const metadataRole=orphanedUser.user_metadata?.role
+      if(linkedProfile?.role==="OWNER"||linkedProfile?.is_active||(!linkedProfile&&metadataRole!=="STAFF"))return fail("That username belongs to an existing account.",409)
+      const {data:emailOwner}=await admin.from("profiles").select("id").ilike("contact_email",contactEmail).neq("id",orphanedUser.id).maybeSingle()
+      if(emailOwner)return fail("That contact email is already assigned to another account.",409)
+      const {error:authError}=await admin.auth.admin.updateUserById(orphanedUser.id,{password,ban_duration:"none",email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
+      if(authError)return fail(`Unable to recover staff login: ${authError.message}`,409)
+      const profileValues={id:orphanedUser.id,full_name:fullName,username,contact_email:contactEmail,role:"STAFF",is_active:true}
+      const {error:profileError}=linkedProfile
+        ?await admin.from("profiles").update(profileValues).eq("id",orphanedUser.id)
+        :await admin.from("profiles").insert(profileValues)
+      if(profileError)return fail(`Unable to recover staff profile: ${profileError.message}`,409)
+      return json({id:orphanedUser.id,full_name:fullName,username,contact_email:contactEmail,recovered:true})
+    }
+    const {data,error}=await admin.auth.admin.createUser({email:internalEmail,password,email_confirm:true,user_metadata:{full_name:fullName,role:"STAFF"}})
     if(error||!data.user)return fail(error?.message??"Staff creation failed",409)
     const {error:profileError}=await admin.from("profiles").update({contact_email:contactEmail}).eq("id",data.user.id)
     if(profileError){await admin.auth.admin.deleteUser(data.user.id);return fail("Contact email already exists or staff profile creation failed",409)}
