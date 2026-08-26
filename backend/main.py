@@ -122,7 +122,7 @@ def delete_staff(profile_id:str,owner=Depends(require_owner)):
 async def verify(request:Request,image:UploadFile=File(...)):
     enforce_rate_limit(request,20)
     probe=await decode_face(image)
-    credentials=db.table('face_credentials').select('profile_id,embedding').execute().data or []
+    credentials=db.table('face_credentials').select('profile_id,embedding,profiles!face_credentials_profile_id_fkey(full_name,username,is_active)').execute().data or []
     if not credentials:raise HTTPException(401,'No enrolled staff matched')
     best=None;best_score=-1.0
     for credential in credentials:
@@ -130,10 +130,10 @@ async def verify(request:Request,image:UploadFile=File(...)):
         score=float(np.dot(probe,enrolled)/(np.linalg.norm(probe)*np.linalg.norm(enrolled)))
         if score>best_score:best,best_score=credential,score
     if best is None or best_score<MATCH_THRESHOLD:raise HTTPException(401,'Face not recognized')
-    profile=db.table('profiles').select('id,full_name,is_active').eq('id',best['profile_id']).single().execute().data
+    profile=best.get('profiles')
+    if isinstance(profile,list):profile=profile[0] if profile else None
     if not profile or not profile['is_active']:raise HTTPException(403,'Staff account is inactive')
-    user=db.auth.admin.get_user_by_id(best['profile_id']).user
-    link=db.auth.admin.generate_link({'type':'magiclink','email':user.email})
+    link=db.auth.admin.generate_link({'type':'magiclink','email':f"{profile['username']}@coffee-shop.local"})
     token_hash=getattr(link.properties,'hashed_token',None)
     if not token_hash:raise HTTPException(500,'Unable to create login session')
     return {'token_hash':token_hash,'full_name':profile['full_name'],'score':round(best_score,3)}
