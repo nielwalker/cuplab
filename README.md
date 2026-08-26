@@ -9,7 +9,7 @@ CUP LAB is a cashier-focused point-of-sale application built with React, Vite, T
 - Tailwind CSS
 - Supabase Auth, PostgreSQL, Storage, and Row Level Security
 - Zod, Lucide React, and Vitest
-- Python FastAPI and UniFace for face verification
+- Python FastAPI for secure owner-managed staff accounts
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ Set only these browser-safe values:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-VITE_FACE_API_URL=http://localhost:8000
+VITE_STAFF_API_URL=http://localhost:8000
 ```
 
 Never expose a service-role key, database password, or other server secret through a `VITE_` variable.
@@ -62,11 +62,11 @@ Create the account in Supabase Dashboard under Authentication > Users. For usern
 
 Do not create passwords directly in PostgreSQL or store them in `public.profiles`.
 
-## Face login and staff attendance
+## Staff login and attendance
 
-Apply `202608260001_staff_faces_attendance.sql` before enabling face login. Existing accounts are promoted to owner accounts; staff registered afterward receive the staff role.
+Apply all migrations, including `202608260008_password_staff_login.sql`. Existing accounts are promoted to owner accounts; staff registered afterward receive the staff role.
 
-Create and start the face service:
+Create and start the staff management service:
 
 ```powershell
 python -m venv .venv
@@ -77,7 +77,7 @@ Copy-Item backend\.env.example backend\.env
 
 Set `SUPABASE_SECRET_KEY` only in the backend environment. Never add it to a `VITE_` variable or deploy it with the browser application. Set `FRONTEND_ORIGIN` to the frontend origin; multiple origins may be comma-separated.
 
-Owners can open **Admin settings → Staff & Attendance** to register a staff name, username, and live face. The service retains only the ArcFace embedding in the protected `face_credentials` table, not the captured photograph. A successful face login opens an attendance session, and logout closes it. Owner recovery login remains available for camera or model outages.
+Owners can open **Admin settings → Staff & Attendance** to create a staff name, username, and password. Passwords are managed by Supabase Auth and are never stored in `public.profiles`. A successful staff password login opens an attendance session, and logout closes it. Owners can also assign a new password from the staff edit dialog.
 
 ## Verification
 
