@@ -9,7 +9,7 @@ CUP LAB is a cashier-focused point-of-sale application built with React, Vite, T
 - Tailwind CSS
 - Supabase Auth, PostgreSQL, Storage, and Row Level Security
 - Zod, Lucide React, and Vitest
-- Python FastAPI for secure owner-managed staff accounts
+- Supabase Edge Functions for secure owner-managed staff accounts
 
 ## Prerequisites
 
@@ -31,7 +31,6 @@ Set only these browser-safe values:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-VITE_STAFF_API_URL=http://localhost:8000
 ```
 
 Never expose a service-role key, database password, or other server secret through a `VITE_` variable.
@@ -66,16 +65,13 @@ Do not create passwords directly in PostgreSQL or store them in `public.profiles
 
 Apply all migrations, including `202608260008_password_staff_login.sql`. Existing accounts are promoted to owner accounts; staff registered afterward receive the staff role.
 
-Create and start the staff management service:
+Deploy the staff management Edge Function after linking the Supabase project:
 
-```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-Copy-Item backend\.env.example backend\.env
-.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```bash
+supabase functions deploy staff
 ```
 
-Set `SUPABASE_SECRET_KEY` only in the backend environment. Never add it to a `VITE_` variable or deploy it with the browser application. Set `FRONTEND_ORIGIN` to the frontend origin; multiple origins may be comma-separated.
+Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the deployed function. Never add the service-role key to a `VITE_` variable or deploy it with the browser application. The function validates the caller's access token and owner profile before using administrator privileges.
 
 Owners can open **Admin settings → Staff & Attendance** to create a staff name, username, and password. Passwords are managed by Supabase Auth and are never stored in `public.profiles`. A successful staff password login opens an attendance session, and logout closes it. Owners can also assign a new password from the staff edit dialog.
 
@@ -102,8 +98,9 @@ Weights without an active matching tier are rejected. Add future ranges through 
 2. Select the Vite framework preset.
 3. Keep the build command as `npm run build` and output directory as `dist`.
 4. Add both `VITE_SUPABASE_*` variables in Vercel project settings.
-5. Add the Vercel production URL to the Supabase Auth URL configuration.
-6. Deploy over HTTPS. The committed `vercel.json` supplies the React Router fallback and security headers.
+5. Deploy the `staff` Supabase Edge Function.
+6. Add the Vercel production URL to the Supabase Auth URL configuration.
+7. Deploy over HTTPS. The committed `vercel.json` supplies the React Router fallback and security headers.
 
 ## Security notes
 
