@@ -5,11 +5,10 @@ export interface CategorySale { category:string; revenue_centavos:number; items_
 export interface ProductSale { category:string; product:string; quantity_sold:number; weight_sold_kg:number; revenue_centavos:number }
 export interface DailySales { categories:CategorySale[]; products:ProductSale[]; cash_revenue_centavos:number; gcash_revenue_centavos:number; total_revenue_centavos:number; completed_orders:number }
 
-export async function getDailySales(date:string):Promise<DailySales>{
-  return cachedQuery(`sales:${date}`,async()=>{
-    const start=new Date(`${date}T00:00:00`)
-    const end=new Date(start)
-    end.setDate(end.getDate()+1)
+export async function getSales(startDate:string,endDate:string):Promise<DailySales>{
+  return cachedQuery(`sales:${startDate}:${endDate}`,async()=>{
+    const start=new Date(`${startDate}T00:00:00`)
+    const end=new Date(`${endDate}T00:00:00`)
     const {data,error}=await supabase.from('orders').select('id,payment_method,total_centavos,order_items(product_name_snapshot,category_name_snapshot,quantity,weight_kg,line_total_centavos)').eq('status','COMPLETED').gte('completed_at',start.toISOString()).lt('completed_at',end.toISOString())
     if(error)throw error
     const grouped=new Map<string,CategorySale>()
