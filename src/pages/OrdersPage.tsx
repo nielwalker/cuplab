@@ -1,5 +1,5 @@
-import { useCallback,useEffect,useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useCallback,useEffect,useMemo,useState } from 'react'
+import { CalendarDays,Trash2,X } from 'lucide-react'
 import type { Order,OrderWithItems } from '../types/database'
 import { deleteOrderPermanently,getOrder,listOrders } from '../services/orders'
 import { formatMoney } from '../utils/money'
@@ -16,6 +16,8 @@ export function OrdersPage(){
   const [password,setPassword]=useState('')
   const [passwordError,setPasswordError]=useState('')
   const [isOwner,setIsOwner]=useState(false)
+  const [dateFrom,setDateFrom]=useState('')
+  const [dateTo,setDateTo]=useState('')
   const load=useCallback(async()=>{try{setOrders(await listOrders());setError('')}catch{setError('Unable to load orders.')}},[])
   useEffect(()=>{void load()},[load])
   useEffect(()=>{void supabase.auth.getUser().then(async({data:{user}})=>{if(!user)return;const {data}=await supabase.from('profiles').select('role').eq('id',user.id).single();setIsOwner(data?.role==='OWNER')})},[])
@@ -53,16 +55,30 @@ export function OrdersPage(){
     }catch{setPasswordError('Unable to verify the password or delete this order.')}finally{setDeletingId(null)}
   }
 
+  const filteredOrders=useMemo(()=>orders.filter(order=>{
+    const date=new Date(order.created_at)
+    const orderDate=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+    return (!dateFrom||orderDate>=dateFrom)&&(!dateTo||orderDate<=dateTo)
+  }),[orders,dateFrom,dateTo])
+  const hasDateFilter=Boolean(dateFrom||dateTo)
+
   return <div className="p-4 pt-16 lg:p-8">
     <h1 className="text-2xl font-bold">Order History</h1>
     <p className="mb-6 text-sm text-stone-500">Select an order to view its items and details.</p>
     {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{error} <button onClick={load} className="font-bold">Retry</button></p>}
     {detailError&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-red-700">{detailError}</p>}
+    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2 self-center text-sm font-semibold text-stone-700"><CalendarDays size={18} className="text-stone-500"/>Filter dates</div>
+      <label className="text-xs font-semibold uppercase tracking-wide text-stone-500">From<input aria-label="Orders from date" type="date" value={dateFrom} max={dateTo||undefined} onChange={event=>setDateFrom(event.target.value)} className="mt-1 block rounded-xl border px-3 py-2 text-sm font-normal normal-case tracking-normal text-stone-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"/></label>
+      <label className="text-xs font-semibold uppercase tracking-wide text-stone-500">To<input aria-label="Orders to date" type="date" value={dateTo} min={dateFrom||undefined} onChange={event=>setDateTo(event.target.value)} className="mt-1 block rounded-xl border px-3 py-2 text-sm font-normal normal-case tracking-normal text-stone-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"/></label>
+      {hasDateFilter&&<button type="button" onClick={()=>{setDateFrom('');setDateTo('')}} className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-100"><X size={16}/>Clear</button>}
+      <span className="ml-auto self-center text-sm text-stone-500">{filteredOrders.length} {filteredOrders.length===1?'order':'orders'}</span>
+    </div>
     <div className="overflow-x-auto rounded-2xl bg-white"><table className="w-full min-w-[640px] text-left">
       <thead className="border-b bg-stone-50 text-xs uppercase text-stone-500"><tr><th className="p-4">Order number</th><th>Staff</th><th>Date</th><th>Time</th><th>Total</th><th className="p-4">Status</th></tr></thead>
-      <tbody>{orders.map(o=>{const date=new Date(o.created_at);const loading=loadingOrderId===o.id;return <tr key={o.id} role="button" tabIndex={0} aria-label={`View order ${o.order_number}`} onClick={()=>void openOrder(o)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();void openOrder(o)}}} className="cursor-pointer border-b transition-colors last:border-0 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500">
+      <tbody>{filteredOrders.map(o=>{const date=new Date(o.created_at);const loading=loadingOrderId===o.id;return <tr key={o.id} role="button" tabIndex={0} aria-label={`View order ${o.order_number}`} onClick={()=>void openOrder(o)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();void openOrder(o)}}} className="cursor-pointer border-b transition-colors last:border-0 hover:bg-stone-50 focus:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500">
         <td className="p-4 font-semibold text-brand-600">{loading?'Loading...':o.order_number}</td><td className="font-medium">{o.cashier?.full_name??'Unknown staff'}</td><td>{date.toLocaleDateString()}</td><td>{date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td>{formatMoney(o.total_centavos)}</td><td className="p-4"><span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{o.status}</span></td>
-      </tr>})}{orders.length===0&&<tr><td colSpan={6} className="p-10 text-center text-stone-500">No completed orders.</td></tr>}</tbody>
+      </tr>})}{filteredOrders.length===0&&<tr><td colSpan={6} className="p-10 text-center text-stone-500">{hasDateFilter?'No orders found for the selected dates.':'No completed orders.'}</td></tr>}</tbody>
     </table></div>
 
     {selectedOrder&&<div className="fixed inset-0 z-40 grid place-items-center bg-black/55 p-4" role="dialog" aria-modal="true" aria-labelledby="order-detail-title" onMouseDown={e=>{if(e.target===e.currentTarget)closeOrder()}}><section className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
